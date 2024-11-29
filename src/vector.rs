@@ -1,12 +1,12 @@
-use std::{
-    alloc::{alloc, dealloc, Layout},
-    fmt::Display,
+use core::{
+    alloc::Layout,
+    fmt::{Debug, Display},
 };
 
 #[derive(Debug, Clone)]
 pub struct Vector<T>
 where
-    T: Sized + Clone + Display + std::fmt::Debug,
+    T: Sized + Clone + Debug,
 {
     arr: *mut T,
     len: usize,
@@ -14,7 +14,7 @@ where
     layout: Layout,
 }
 
-impl<T: Sized + Clone + Display + std::fmt::Debug> Vector<T> {
+impl<T: Sized + Clone + Debug> Vector<T> {
     pub fn new() -> Vector<T> {
         let cap = 4;
         let layout = Layout::array::<T>(cap).unwrap();
@@ -76,12 +76,12 @@ impl<T: Sized + Clone + Display + std::fmt::Debug> Vector<T> {
     }
 }
 
-impl<T: Sized + Clone + Display + std::fmt::Debug> Display for Vector<T> {
+impl<T: Sized + Clone + Debug> Display for Vector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buff = String::from("[");
         for i in 0..self.len {
             unsafe {
-                buff.push_str(format!("{}, ", self.arr.add(i).read()).as_str());
+                buff.push_str(format!("{:?}, ", self.arr.add(i).read()).as_str());
             }
         }
         // TODO: Implement recursive solution to fix this
@@ -89,5 +89,21 @@ impl<T: Sized + Clone + Display + std::fmt::Debug> Display for Vector<T> {
         buff.pop();
         buff.push(']');
         write!(f, "{}", buff)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vector_basic() {
+        let mut vec = Vector::new();
+        vec.push(3);
+        vec.push(2);
+        vec.push(1);
+        assert_eq!(vec.len, 3);
+        vec.push(0);
+        assert_eq!(vec.cap, 12);
     }
 }
