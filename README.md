@@ -1,2 +1,2 @@
 # drumindor
-My personal no_std implementation of everything I can think of in Rust.
+My personal no_std implementations of everything I can think of in Rust.
