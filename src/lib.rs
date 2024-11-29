@@ -1,7 +1,7 @@
 #![no_std]
+extern crate alloc;
 
-pub mod alloc;
-pub mod vector;
-
-#[global_allocator]
-static ALLOCATOR: alloc::Allocator = alloc::Allocator::new();
+mod r#box;
+mod hashmap;
+mod my_alloc;
+mod vector;

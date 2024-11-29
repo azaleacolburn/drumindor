@@ -1,9 +1,5 @@
-use crate::ALLOCATOR;
-use core::{
-    alloc::{GlobalAlloc, Layout},
-    fmt::Debug,
-    mem, ptr,
-};
+use alloc::{alloc, alloc_zeroed, dealloc};
+use core::{alloc::Layout, fmt::Debug, mem, ptr};
 
 #[derive(Debug, Clone)]
 pub struct Vector<T>
@@ -21,7 +17,6 @@ unsafe impl<T: Debug + Clone + Sync> Sync for Vector<T> {}
 impl<T: Sized + Clone + Debug> Vector<T> {
     pub fn new() -> Vector<T> {
         Vector {
-            // We just checked
             arr: ptr::null_mut(),
             len: 0,
             cap: 0,
@@ -29,7 +24,7 @@ impl<T: Sized + Clone + Debug> Vector<T> {
     }
 
     pub fn push(&mut self, item: T) {
-        if self.len + 1 == self.cap {
+        if self.len + 1 == self.cap || self.len == 0 || self.cap == 0 {
             self.resize();
         }
         unsafe {
@@ -57,7 +52,7 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         let old_layout = Layout::array::<T>(self.cap).unwrap();
         self.cap = if self.cap == 0 { 4 } else { self.cap * 3 };
         let layout = Layout::array::<T>(self.cap).unwrap();
-        let new_ptr = unsafe { ALLOCATOR.alloc(layout) as *mut T };
+        let new_ptr = unsafe { alloc::alloc(layout) as *mut T };
         if new_ptr.is_null() {
             panic!("Allocating new array failed");
         }
@@ -68,7 +63,7 @@ impl<T: Sized + Clone + Debug> Vector<T> {
                     new_ptr.add(i).write(self.arr.add(i).read().clone());
                 }
 
-                ALLOCATOR.dealloc(self.arr as *mut u8, old_layout);
+                dealloc(self.arr as *mut u8, old_layout);
             }
         }
 
@@ -84,7 +79,7 @@ impl<T: Debug + Clone> Drop for Vector<T> {
 
         unsafe {
             let layout = Layout::array::<T>(self.cap).unwrap();
-            ALLOCATOR.dealloc(self.arr as *mut u8, layout);
+            dealloc(self.arr as *mut u8, layout);
         }
     }
 }
@@ -107,16 +102,10 @@ impl<T: Debug + Clone> Drop for Vector<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ALLOCATOR;
-
     use super::*;
 
     #[test]
     fn test_vector_basic() {
-        unsafe {
-            ALLOCATOR.init();
-        }
-
         let mut vec = Vector::new();
         vec.push(3);
         vec.push(2);
