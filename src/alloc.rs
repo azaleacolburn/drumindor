@@ -4,13 +4,14 @@ use core::{
     ptr::{null_mut, NonNull},
 };
 const ARENA_SIZE: usize = 128 * 1024;
-// const MAX_SUPPORTED_ALIGN: usize = 4096;
+const MAX_SUPPORTED_ALIGN: usize = 4096;
 
 pub struct MemBlock {
     size: usize,
     next: Option<NonNull<MemBlock>>,
 }
 
+#[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Allocator {
     arena: UnsafeCell<[u8; ARENA_SIZE]>,
@@ -62,13 +63,19 @@ impl Allocator {
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let layout_size = layout.size();
+        let layout_align = layout.align();
+        if layout_align > MAX_SUPPORTED_ALIGN {
+            return null_mut();
+        }
         let mut current = *self.free_list.get();
         let mut prev: Option<NonNull<MemBlock>> = None;
+        debug_assert!(current.is_some(), "current none");
 
         while let Some(node) = current {
             let node_ref = node.as_ref();
             let node_start = node.as_ptr() as usize;
-            let aligned_start = Self::align_up(node_start, layout.align());
+
+            let aligned_start = Self::align_up(node_start, layout_align);
             let padding = aligned_start - node_start;
 
             if node_ref.size < layout_size + size_of::<MemBlock>() + padding {
@@ -95,6 +102,7 @@ unsafe impl GlobalAlloc for Allocator {
             return alloc_start;
         }
 
+        panic!("no avaliable blocks");
         return null_mut();
     }
 
@@ -130,5 +138,25 @@ unsafe impl GlobalAlloc for Allocator {
 
         // Merge adjacent free blocks
         self.merge_blocks();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ALLOCATOR;
+
+    #[test]
+    fn test_basic_alloc_dealloc() {
+        unsafe {
+            ALLOCATOR.init();
+        }
+        panic!("{}", format_args!("{:?}", ALLOCATOR));
+
+        let layout = Layout::array::<u8>(4).unwrap();
+        let mem: *mut u8 = unsafe { ALLOCATOR.alloc(layout) };
+        if mem.is_null() {
+            panic!("Allocation failed: Null ptr returned");
+        }
     }
 }
