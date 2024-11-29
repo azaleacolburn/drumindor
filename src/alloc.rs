@@ -4,7 +4,7 @@ use core::{
     ptr::{null_mut, NonNull},
 };
 const ARENA_SIZE: usize = 128 * 1024;
-const MAX_SUPPORTED_ALIGN: usize = 4096;
+// const MAX_SUPPORTED_ALIGN: usize = 4096;
 
 pub struct MemBlock {
     size: usize,
@@ -53,6 +53,10 @@ impl Allocator {
             current = node.as_ref().next;
         }
     }
+    /// Align the given address upwards to the nearest multiple of `align` (ie. some power of two).
+    fn align_up(addr: usize, align: usize) -> usize {
+        (addr + align - 1) & !(align - 1)
+    }
 }
 
 unsafe impl GlobalAlloc for Allocator {
@@ -61,15 +65,19 @@ unsafe impl GlobalAlloc for Allocator {
         let mut current = *self.free_list.get();
         let mut prev: Option<NonNull<MemBlock>> = None;
 
-        while let Some(mut node) = current {
-            let node_ref = node.as_mut();
-            if node_ref.size < layout_size + size_of::<MemBlock>() {
+        while let Some(node) = current {
+            let node_ref = node.as_ref();
+            let node_start = node.as_ptr() as usize;
+            let aligned_start = Self::align_up(node_start, layout.align());
+            let padding = aligned_start - node_start;
+
+            if node_ref.size < layout_size + size_of::<MemBlock>() + padding {
                 prev = current;
                 current = node_ref.next;
                 continue;
             }
 
-            let alloc_start = node.as_ptr() as *mut u8;
+            let alloc_start = aligned_start as *mut u8;
             let alloc_end = alloc_start.add(layout_size);
 
             let new_free_node = alloc_end as *mut MemBlock;
