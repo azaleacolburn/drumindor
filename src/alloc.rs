@@ -61,6 +61,8 @@ impl Allocator {
 
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.init();
+
         let layout_size = layout.size();
         let mut current = *self.free_list.get();
         let mut prev: Option<NonNull<MemBlock>> = None;
@@ -130,5 +132,27 @@ unsafe impl GlobalAlloc for Allocator {
 
         // Merge adjacent free blocks
         self.merge_blocks();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static ALLOCATOR: Allocator = Allocator::new();
+
+    #[test]
+    fn basic_alloc() {
+        let layout = Layout::array::<usize>(4).unwrap();
+        unsafe {
+            let buff = ALLOCATOR.alloc(layout);
+            assert!(!buff.is_null());
+            assert!(buff.is_aligned());
+            buff.write_bytes(1, 4);
+            assert_eq!(buff.read(), 1);
+            assert_eq!(buff.add(1).read(), 1);
+            assert_eq!(buff.add(2).read(), 1);
+            assert_eq!(buff.add(3).read(), 1);
+        }
     }
 }

@@ -1,7 +1,5 @@
-use core::{
-    alloc::Layout,
-    fmt::{Debug, Display},
-};
+use crate::{alloc, dealloc};
+use core::{alloc::Layout, fmt::Debug};
 
 #[derive(Debug, Clone)]
 pub struct Vector<T>
@@ -48,7 +46,7 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         unsafe {
             let last = self.arr.add(self.len - 1);
             let val = last.read();
-            last.write(std::mem::zeroed());
+            last.write(core::mem::zeroed());
             self.len -= 1;
 
             return Some(val);
@@ -73,22 +71,6 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         }
         self.arr = new_ptr;
         self.layout = layout;
-    }
-}
-
-impl<T: Sized + Clone + Debug> Display for Vector<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buff = String::from("[");
-        for i in 0..self.len {
-            unsafe {
-                buff.push_str(format!("{:?}, ", self.arr.add(i).read()).as_str());
-            }
-        }
-        // TODO: Implement recursive solution to fix this
-        buff.pop();
-        buff.pop();
-        buff.push(']');
-        write!(f, "{}", buff)
     }
 }
 
