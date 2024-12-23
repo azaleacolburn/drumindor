@@ -1,5 +1,7 @@
-use alloc::{alloc, alloc_zeroed, dealloc};
-use core::{alloc::Layout, fmt::Debug, mem, ptr};
+use core::{
+    alloc::Layout,
+    fmt::{Debug, Display},
+};
 
 #[derive(Debug, Clone)]
 pub struct Vector<T>
@@ -9,22 +11,27 @@ where
     arr: *mut T,
     len: usize,
     cap: usize,
+    layout: Layout,
 }
-
-unsafe impl<T: Debug + Clone + Send> Send for Vector<T> {}
-unsafe impl<T: Debug + Clone + Sync> Sync for Vector<T> {}
 
 impl<T: Sized + Clone + Debug> Vector<T> {
     pub fn new() -> Vector<T> {
+        let cap = 4;
+        let layout = Layout::array::<T>(cap).unwrap();
+        let arr = unsafe { alloc(layout) as *mut T };
+        if arr.is_null() {
+            panic!("Allocating new array failed");
+        }
         Vector {
-            arr: ptr::null_mut(),
+            arr,
             len: 0,
-            cap: 0,
+            cap,
+            layout,
         }
     }
 
     pub fn push(&mut self, item: T) {
-        if self.len + 1 == self.cap || self.len == 0 || self.cap == 0 {
+        if self.len + 1 == self.cap {
             self.resize();
         }
         unsafe {
@@ -41,7 +48,7 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         unsafe {
             let last = self.arr.add(self.len - 1);
             let val = last.read();
-            last.write(mem::zeroed());
+            last.write(std::mem::zeroed());
             self.len -= 1;
 
             return Some(val);
@@ -49,56 +56,41 @@ impl<T: Sized + Clone + Debug> Vector<T> {
     }
 
     fn resize(&mut self) {
-        let old_layout = Layout::array::<T>(self.cap).unwrap();
-        self.cap = if self.cap == 0 { 4 } else { self.cap * 3 };
+        self.cap *= 3;
         let layout = Layout::array::<T>(self.cap).unwrap();
-        let new_ptr = unsafe { alloc::alloc(layout) as *mut T };
+        let new_ptr = unsafe { alloc(layout) as *mut T };
         if new_ptr.is_null() {
             panic!("Allocating new array failed");
         }
 
-        if !self.arr.is_null() {
+        for i in 0..self.len {
             unsafe {
-                for i in 0..self.len {
-                    new_ptr.add(i).write(self.arr.add(i).read().clone());
-                }
-
-                dealloc(self.arr as *mut u8, old_layout);
+                new_ptr.add(i).write(self.arr.add(i).read().clone());
             }
         }
-
-        self.arr = new_ptr;
-    }
-}
-
-impl<T: Debug + Clone> Drop for Vector<T> {
-    fn drop(&mut self) {
-        if self.arr.is_null() {
-            return;
-        }
-
         unsafe {
-            let layout = Layout::array::<T>(self.cap).unwrap();
-            dealloc(self.arr as *mut u8, layout);
+            dealloc(self.arr as *mut u8, self.layout);
         }
+        self.arr = new_ptr;
+        self.layout = layout;
     }
 }
 
-// impl<T: Sized + Clone + Debug> Display for Vector<T> {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         let mut buff = String::from("[");
-//         for i in 0..self.len {
-//             unsafe {
-//                 buff.push_str(format!("{:?}, ", self.arr.add(i).read()).as_str());
-//             }
-//         }
-//         // TODO: Implement recursive solution to fix this
-//         buff.pop();
-//         buff.pop();
-//         buff.push(']');
-//         write!(f, "{}", buff)
-//     }
-// }
+impl<T: Sized + Clone + Debug> Display for Vector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut buff = String::from("[");
+        for i in 0..self.len {
+            unsafe {
+                buff.push_str(format!("{:?}, ", self.arr.add(i).read()).as_str());
+            }
+        }
+        // TODO: Implement recursive solution to fix this
+        buff.pop();
+        buff.pop();
+        buff.push(']');
+        write!(f, "{}", buff)
+    }
+}
 
 #[cfg(test)]
 mod tests {
