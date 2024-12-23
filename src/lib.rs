@@ -9,4 +9,5 @@ extern crate alloc as alloc_callable;
 use alloc_callable::alloc::{alloc, alloc_zeroed, dealloc, realloc};
 
 pub mod alloc;
+pub mod hashmap;
 pub mod vector;

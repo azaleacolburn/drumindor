@@ -53,8 +53,31 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         }
     }
 
-    fn resize(&mut self) {
-        self.cap *= 3;
+    pub fn set(&mut self, item: T, pos: usize) {
+        if self.cap <= pos {
+            self.set_cap(pos);
+            self.len = pos + 1;
+        }
+
+        unsafe {
+            self.arr.add(pos).write(item);
+        }
+    }
+
+    pub fn get(&self, pos: usize) -> T {
+        if self.len <= pos {
+            panic!("Position out of bounds of Vector");
+        }
+
+        unsafe { self.arr.add(pos).read() }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn set_cap(&mut self, cap: usize) {
+        self.cap = cap;
         let layout = Layout::array::<T>(self.cap).unwrap();
         let new_ptr = unsafe { alloc(layout) as *mut T };
         if new_ptr.is_null() {
@@ -71,6 +94,10 @@ impl<T: Sized + Clone + Debug> Vector<T> {
         }
         self.arr = new_ptr;
         self.layout = layout;
+    }
+
+    fn resize(&mut self) {
+        self.set_cap(self.cap * 3);
     }
 }
 
