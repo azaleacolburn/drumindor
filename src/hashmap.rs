@@ -35,6 +35,7 @@ where
     }
 }
 
+/// Basic string hashing function
 fn hash(value: &str) -> usize {
     let p = 31;
     let m = 1e9 as usize + 9;
